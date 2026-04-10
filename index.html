@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TUN FaceSupportCalculator</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for plotting -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <!-- Load libraries for PDF generation -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        html {
+            color-scheme: light;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Style for layer input table */
+        .layer-input-row input {
+            text-align: right;
+        }
+        /* Ensure canvas is responsive */
+        #sketchCanvas {
+            width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            background-color: #fcfcfc;
+        }
+        /* Custom Modal Styling (replaces alert/confirm) */
+        .custom-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            max-width: 400px;
+            text-align: center;
+        }
+        /* Loader for PDF generation */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-8 font-sans antialiased">
+
+    <!-- Custom Modal for Alerts/Warnings -->
+    <div id="customModal" class="custom-modal">
+        <div class="modal-content">
+            <h3 id="modalTitle" class="text-lg font-bold text-red-700 mb-3">Warning</h3>
+            <p id="modalMessage" class="text-gray-700 mb-4"></p>
+            <div id="loader-container" class="hidden justify-center my-4">
+                <div class="loader"></div>
+            </div>
+            <button id="modal-close-button" onclick="closeModal()" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Acknowledge</button>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto bg-white shadow-2xl rounded-xl p-6 md:p-10 border border-gray-100">
+
+        <header class="mb-8">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-3xl font-extrabold text-blue-800 mb-2">TBM Support Pressure Analysis</h1>
+                    <p class="text-gray-600">The total force required is S<sub>ci</sub> = η<sub>E</sub>E<sub>max,ci</sub> + η<sub>W</sub>W<sub>ci</sub>.</p>
+                </div>
+                <!-- Save/Load Buttons -->
+                <div class="flex space-x-2">
+                    <button onclick="handleSave()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg shadow-md transition duration-150 ease-in-out text-sm">Save Data</button>
+                    <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleLoad(event)">
+                    <button onclick="document.getElementById('csv-file-input').click()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg shadow-md transition duration-150 ease-in-out text-sm">Load Data</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            
+            <!-- Input Panel: Geometry & Safety Factors -->
+            <div id="geometry-inputs" class="lg:col-span-1 p-4 bg-blue-50 rounded-lg shadow-inner h-fit">
+                <h2 class="text-xl font-semibold text-blue-700 mb-4 border-b border-blue-200 pb-2">Geometry &amp; Factors</h2>
+                
+                <!-- Input Group: Tunnel Diameter D -->
+                <div class="mb-3">
+                    <label for="D" class="block text-sm font-medium text-gray-700">Tunnel Diameter D [m]</label>
+                    <input type="number" id="D" value="10" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                </div>
+                
+                <!-- Input Group: Overburden Height t_crown -->
+                <div class="mb-3">
+                    <label for="t_crown" class="block text-sm font-medium text-gray-700">Crown Overburden t<sub>crown</sub> [m]</label>
+                    <input type="number" id="t_crown" value="15" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                </div>
+
+                <!-- Surcharge Inputs -->
+                <div class="mb-3">
+                    <label for="sigma_s_p" class="block text-sm font-medium text-gray-700">Permanent Surcharge σ<sub>s,p</sub> [kN/m²]</label>
+                    <input type="number" id="sigma_s_p" value="10" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                </div>
+                <div class="mb-3">
+                    <label for="sigma_s_t" class="block text-sm font-medium text-gray-700">Traffic Surcharge σ<sub>s,t</sub> [kN/m²]</label>
+                    <input type="number" id="sigma_s_t" value="0" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                </div>
+
+
+                <!-- Input Group: Groundwater Level -->
+                <div class="mb-3">
+                    <label for="h_w" class="block text-sm font-medium text-gray-700">Groundwater Level h<sub>w</sub> [m] (Depth from Surface)</label>
+                    <input type="number" id="h_w" value="2" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                </div>
+
+                <!-- Input Group: Slurry Unit Weight -->
+                <div class="mb-4 pt-2 border-t border-blue-200">
+                    <label for="gamma_S" class="block text-sm font-semibold text-blue-700 mb-1">Slurry Unit Weight (No Lowering) γ<sub>S</sub> [kN/m³]</label>
+                    <input type="number" id="gamma_S" value="12" step="0.1" min="10.0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                </div>
+
+                <!-- Slurry Properties for Penetration Model -->
+                <div class="mb-4 pt-2 border-t border-blue-200 bg-blue-50 p-2 rounded-md">
+                    <p class="text-sm font-semibold text-blue-800 mb-2">Slurry Properties (DAUB 8.1.2)</p>
+                    <div class="mb-3">
+                        <label for="d10" class="block text-xs font-medium text-gray-700">Grain Size d<sub>10</sub> [mm]</label>
+                        <input type="number" id="d10" value="0.15" step="0.01" min="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" onchange="updatePlot()">
+                    </div>
+                    <div>
+                        <label for="tau_f" class="block text-xs font-medium text-gray-700">Yield Point τ<sub>f</sub> [N/m²]</label>
+                        <input type="number" id="tau_f" value="30" step="1" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" onchange="updatePlot()">
+                    </div>
+                </div>
+                 <!-- Inputs for Partial Lowering -->
+                <div class="mb-4 pt-2 border-t border-blue-200 bg-blue-100 p-2 rounded-md">
+                    <p class="text-sm font-semibold text-blue-800 mb-2">Partial Lowering Inputs</p>
+                    <div class="mb-3">
+                        <label for="slurry_level_partial" class="block text-xs font-medium text-gray-700">Slurry Level [% of D]</label>
+                        <input type="number" id="slurry_level_partial" value="50" step="1" min="1" max="99" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" onchange="updatePlot()">
+                    </div>
+                    <div>
+                        <label for="gamma_S_partial" class="block text-xs font-medium text-gray-700">Slurry Unit Weight (Partial) γ<sub>S,part</sub> [kN/m³]</label>
+                        <input type="number" id="gamma_S_partial" value="11.5" step="0.1" min="10.0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm" onchange="updatePlot()">
+                    </div>
+                </div>
+                
+                <!-- K2 Model Selection -->
+                <div class="mb-4 pt-2 border-t border-blue-200">
+                    <label for="k2_model" class="block text-sm font-semibold text-blue-700 mb-1">Lateral Pressure Coeff. (K<sub>2</sub>)</label>
+                    <select id="k2_model" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm" onchange="updatePlot()">
+                        <option value="JancseczSteiner">Jancsecz &amp; Steiner (K₂ = (k₀+kₐ)/2) - RECOMMENDED</option>
+                        <option value="KirschKolymbas">Kirsch &amp; Kolymbas (K₂ = k₀ = 1-sin(φ'))</option>
+                        <option value="AnagnostouKovari">Anagnostou &amp; Kovari (K₂ = 0.4)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Select approach for lateral earth pressure coefficient K<sub>2</sub> in T<sub>R</sub>.</p>
+                </div>
+                
+                <!-- Sigma V Model Selection -->
+                <div class="mb-4 pt-2 border-t border-blue-200">
+                    <label for="sigma_v_model" class="block text-sm font-semibold text-blue-700 mb-1">Vertical Stress Distribution (σ'<sub>v</sub>)</label>
+                    <select id="sigma_v_model" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm" onchange="updatePlot()">
+                        <option value="KirschKolymbas">Kirsch &amp; Kolymbas (Linear Increase) - RECOMMENDED</option>
+                        <option value="GirmscheidDIN">Girmscheid/DIN (Trapezoidal Arching)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Select vertical stress assumption on the wedge side shear planes (Fig. 23).</p>
+                </div>
+                
+                <!-- Silo Theory Inputs -->
+                <div class="mb-4 pt-2 border-t border-blue-200">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="apply_silo" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" onchange="handleToggleSilo(); updatePlot();">
+                        <label for="apply_silo" class="ml-2 block text-sm font-semibold text-blue-700">Apply Janssen's Silo Theory (σ<sub>v,max</sub> only)</label>
+                    </div>
+                    <div id="silo_options" class="hidden mt-2 pl-4 space-y-2">
+                        <div>
+                            <label for="silo_k1" class="block text-xs font-medium text-gray-700">Lateral Earth Pressure Coeff. (K₁)</label>
+                            <input type="number" id="silo_k1" value="0.8" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-1 border text-xs" onchange="updatePlot()">
+                            <p class="text-xs text-gray-500 mt-1">Used for silo shear plane friction.</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Reduces vertical stress due to arching (Infinite Strip model).</p>
+                </div>
+
+                <!-- Safety Factors -->
+                <div class="mb-4 pt-2 border-t border-blue-200">
+                    <p class="text-sm font-semibold text-blue-700 mb-1">Safety Factors (Eq. 4)</p>
+                    <div class="flex space-x-2">
+                        <label for="eta_E" class="text-xs font-medium text-gray-700">η<sub>E</sub> (Earth):</label>
+                        <input type="number" id="eta_E" value="1.5" step="0.05" class="w-1/3 p-1 border rounded text-xs" onchange="updatePlot()">
+                        <label for="eta_W" class="text-xs font-medium text-gray-700">η<sub>W</sub> (Water):</label>
+                        <input type="number" id="eta_W" value="1.05" step="0.05" class="w-1/3 p-1 border rounded text-xs" onchange="updatePlot()">
+                    </div>
+                </div>
+                
+                <!-- Deviation Input -->
+                <div class="mb-4 pt-2 border-t border-blue-200">
+                    <label for="delta_P" class="block text-sm font-semibold text-blue-700 mb-1">Support Pressure Deviation Δ [kN/m²] (DAUB 7.1)</label>
+                    <input type="number" id="delta_P" value="10" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border" onchange="updatePlot()">
+                    <p class="text-xs text-gray-500 mt-1">e.g., 10 kPa for Slurry/Compressed Air; 30 kPa for EPB Shield.</p>
+                </div>
+
+                <button onclick="updatePlot()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out">
+                    Calculate &amp; Plot S<sub>ci</sub>
+                </button>
+            </div>
+
+            <!-- Input Panel: Layers -->
+            <div id="inputs" class="lg:col-span-3 p-4 bg-yellow-50 rounded-lg shadow-inner">
+                <h2 class="text-xl font-semibold text-yellow-700 mb-4 border-b border-yellow-200 pb-2">Layered Soil Profile (Depth is from Ground Surface)</h2>
+
+                <div class="overflow-x-auto mb-4">
+                    <table class="min-w-full divide-y divide-gray-300">
+                        <thead class="bg-yellow-100">
+                            <tr>
+                                <!-- REWORKED: Manually uppercased text to protect Greek symbols -->
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">#</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">SHORT NAME</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">DEPTH TO BOTTOM [m]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">TOTAL γ,max [kN/m³]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">TOTAL γ,min [kN/m³]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">SUBM. γ',max [kN/m³]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">SUBM. γ',min [kN/m³]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">FRICTION φ' [deg]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">COHESION c' [kN/m²]</th>
+                                <th class="py-2 px-2 text-xs font-medium text-gray-700 tracking-wider text-center">ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="layer-profile" class="bg-white divide-y divide-gray-200">
+                            <!-- Layer rows will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-start space-x-4">
+                    <button onclick="addLayer()" class="px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 transition duration-150">Add Layer</button>
+                </div>
+                
+                <!-- Display Area for Averaged Properties -->
+                <div id="average-display" class="mt-4 p-3 bg-white border border-yellow-300 rounded-md">
+                    <h3 class="font-semibold text-sm text-gray-800">Homogenized/Averaged Properties for Wedge Calculation:</h3>
+                    <div class="text-sm font-mono mt-2 space-y-1">
+                        <p>Effective Unit Weight γ'<sub>eff,av</sub>: <span id="avg_gamma_eff">N/A</span> kN/m³</p>
+                        <p>Side Area φ'<sub>av</sub> (for T<sub>R</sub>): <span id="avg_phi_side">N/A</span> deg</p>
+                        <p>Side Area c'<sub>av</sub> (for T<sub>C</sub>): <span id="avg_c_side">N/A</span> kN/m²</p>
+                        <p class="mt-2 pt-1 border-t border-gray-200">Base Area φ'<sub>av</sub> (for E<sub>re</sub>): <span id="avg_phi_base">N/A</span> deg</p>
+                        <p>Base Area c'<sub>av</sub> (for C<sub>base</sub>): <span id="avg_c_base">N/A</span> kN/m²</p>
+                        <p class="mt-2 pt-1 border-t border-gray-200">Max Effective Stress σ'<sub>v,crown,max</sub>: <span id="sigma_prime_v_crown">N/A</span> kN/m²</p>
+                        <p>Min Effective Stress σ'<sub>v,crown,min</sub>: <span id="sigma_prime_v_crown_min">N/A</span> kN/m²</p>
+                        <p class="mt-2 pt-1 border-t border-gray-200">Critical Wedge Angle &vartheta;<sub>crit</sub>: <span id="avg_theta_crit">N/A</span> deg</p>
+                        <p class="text-xs text-gray-500 mt-2" id="average-note">Note: Gamma &amp; Side properties are volume-averaged over the critical wedge. Base properties are averaged over the prism height (D).</p>
+                    </div>
+                </div>
+
+                <!-- Display Area for Silo Calculation Details -->
+                <div id="silo-details-display-max" class="hidden mt-4 p-3 bg-white border border-blue-300 rounded-md">
+                    <!-- Content injected by ui.js -->
+                </div>
+            </div>
+
+            <!-- Main Results (Forces and Chart) -->
+            <div id="results-and-sketch" class="lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Chart Panel (Force vs. Angle) -->
+                <div class="p-6 bg-white rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Required Support Forces</h2>
+                    
+                    <div class="mb-6 grid grid-cols-2 gap-4">
+                        <div class="p-3 bg-red-50 rounded-md border border-red-200">
+                            <p class="text-sm text-gray-600 font-semibold">E<sub>max,re</sub> (Rectangular)</p>
+                            <strong id="Emax_re" class="text-2xl font-extrabold text-red-600">N/A</strong>
+                            <span class="text-sm text-gray-500">kN</span>
+                        </div>
+                        <div class="p-3 bg-blue-50 rounded-md border border-blue-200">
+                            <p class="text-sm text-gray-600 font-semibold">W<sub>re</sub> (Rectangular)</p>
+                            <strong id="Wre" class="text-2xl font-extrabold text-blue-600">N/A</strong>
+                            <span class="text-sm text-gray-500">kN</span>
+                        </div>
+                        <div class="p-3 bg-red-100 rounded-md border border-red-300">
+                            <p class="text-sm text-gray-600 font-semibold">E<sub>max,ci</sub> (Circular Face)</p>
+                            <strong id="Emax_ci" class="text-2xl font-extrabold text-red-700">N/A</strong>
+                            <span class="text-sm text-gray-500">kN</span>
+                        </div>
+                        <div class="p-3 bg-blue-100 rounded-md border border-blue-300">
+                            <p class="text-sm text-gray-600 font-semibold">W<sub>ci</sub> (Circular Face)</p>
+                            <strong id="Wci" class="text-2xl font-extrabold text-blue-700">N/A</strong>
+                            <span class="text-sm text-gray-500">kN</span>
+                        </div>
+                        <div class="col-span-2 p-3 bg-green-100 rounded-md border border-green-300 text-center">
+                            <p class="text-sm text-gray-700 font-semibold">Total Support Force S<sub>ci</sub> = η<sub>E</sub>E<sub>max,ci</sub> + η<sub>W</sub>W<sub>ci</sub></p>
+                            <strong id="Sci" class="text-3xl font-extrabold text-green-700">N/A</strong>
+                            <span class="text-sm text-gray-600">kN</span>
+                        </div>
+                    </div>
+
+                    <div class="relative h-[250px] md:h-[300px] mt-6">
+                        <canvas id="EreChart"></canvas>
+                    </div>
+                    <p class="text-center text-sm mt-3">Critical Sliding Angle: &vartheta;<sub>crit</sub> = <strong id="theta_crit">N/A</strong> deg</p>
+                </div>
+                
+                <!-- Sketch Panel -->
+                <div class="p-6 bg-white rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Side View Failure Body Sketch</h2>
+                    <canvas id="sketchCanvas" width="400" height="400" class="border rounded-lg"></canvas>
+                    <p class="text-xs text-gray-500 mt-2">Wedge Face Area (Rectangular Approx., D × D): <strong id="faceArea">N/A</strong> m²</p>
+                    <p class="text-xs text-gray-500 mt-1">Tunnel Face Area (Circular, πD²/4): <strong id="faceAreaCircular">N/A</strong> m²</p>
+                </div>
+            </div>
+
+            <!-- Slurry Penetration Analysis (New Separate Tile) -->
+            <div id="slurry-penetration-results" class="lg:col-span-4 p-6 bg-white rounded-lg shadow-lg mt-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Slurry Penetration Analysis</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Left: Results and Adjustment -->
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-3 bg-[#8B4513]/5 rounded-md border border-[#8B4513]/20">
+                                <p class="text-xs text-gray-600 font-semibold uppercase">Stagnation Gradient f<sub>s0</sub></p>
+                                <strong id="fs0_display" class="text-2xl font-bold text-[#8B4513]">N/A</strong>
+                                <span class="text-sm text-gray-500">kN/m³</span>
+                            </div>
+                            <div class="p-3 bg-[#8B4513]/5 rounded-md border border-[#8B4513]/20">
+                                <p class="text-xs text-gray-600 font-semibold uppercase">Transfer Efficiency</p>
+                                <strong id="efficiency_display" class="text-2xl font-bold text-[#8B4513]">N/A</strong>
+                                <span class="text-sm text-gray-500">%</span>
+                            </div>
+                        </div>
+                        <p id="penetration-note" class="text-xs text-gray-500 italic">Note: Penetration model active if f<sub>s0</sub> &lt; 200 kN/m³ (DIN 4126).</p>
+                        
+                        <!-- Manual Adjustment Override -->
+                        <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <label for="emax_ci_override" class="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">Manual Adjustment: E<sub>max,ci</sub> [kN]</label>
+                            <div class="flex items-center space-x-2">
+                                <div class="relative flex-grow">
+                                    <input type="number" id="emax_ci_override" placeholder="Calculated value used if empty" class="block w-full rounded-md border-gray-300 shadow-sm p-2 border text-sm focus:ring-[#8B4513] focus:border-[#8B4513] bg-white" onchange="updatePlot()">
+                                    <!-- Mirror div for PDF reports (Option 1) -->
+                                    <div id="emax_ci_mirror" class="hidden absolute inset-0 bg-white border border-gray-300 rounded-md p-2 text-sm items-center"></div>
+                                </div>
+                                <button onclick="document.getElementById('emax_ci_override').value=''; updatePlot()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-colors font-semibold">Reset</button>
+                            </div>
+                            <p class="text-[11px] text-[#8B4513] mt-2 italic">Note: Overriding E<sub>max,ci</sub> recalculates support pressure and penetration efficiency.</p>
+                        </div>
+
+                        <!-- Intermediate Results (DAUB Page 55) -->
+                        <div id="efficiency-details" class="hidden p-4 bg-white rounded-lg border border-gray-200">
+                            <h3 class="text-xs font-bold text-gray-700 mb-3 uppercase tracking-wider">Detailed Efficiency Breakdown (DAUB Fig. 32)</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-[11px] font-mono">
+                                <p>Length b of the wedge: <span id="wedge_b_display" class="font-bold">N/A</span> m</p>
+                                <p>Coordinate x: <span id="coord_x_display" class="font-bold">N/A</span> m</p>
+                                <p>Slurry excess pressure Δp<sub>x</sub>: <span id="dp_x_display" class="font-bold">N/A</span> kN/m²</p>
+                                <p>Penetration distance e<sub>max,x</sub>: <span id="emax_x_display" class="font-bold">N/A</span> m</p>
+                                <p>Area AA (Effective Zone): <span id="area_aa_display" class="font-bold">N/A</span> m²</p>
+                                <p>Area BB (Total Penetration): <span id="area_bb_display" class="font-bold">N/A</span> m²</p>
+                                <p>Ratio AA/BB: <span id="ratio_aabb_display" class="font-bold">N/A</span> %</p>
+                            </div>
+                        </div>
+
+                        <!-- Verification Block -->
+                        <div id="slurry-verification-block" class="p-4 bg-gray-50 border border-gray-200 rounded-md hidden">
+                            <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Stability Verification (Force Transfer)</h4>
+                            <div id="verification-equation" class="font-mono text-xs text-gray-800 break-words"></div>
+                            <div id="verification-status" class="mt-3 text-xs font-bold uppercase tracking-widest text-center py-2 rounded"></div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Grain-scale Stability Check (DAUB Eq. 3) -->
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h3 class="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider">Grain-scale Stability (DAUB Eq. 3)</h3>
+                        <div class="bg-white p-3 rounded border border-gray-200 mb-4 text-center">
+                            <p class="font-mono text-sm text-gray-700">
+                                τ<sub>F</sub> ≥ (d<sub>10</sub> / (2·η<sub>F</sub>)) · (γ<sub>φ</sub> / tan(φ')) · γ'<sub>eff,av</sub> · γ<sub>G</sub>
+                            </p>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex justify-between"><span>Required Yield Point τ<sub>F,req</sub>:</span> <strong id="tau_f_req_display" class="text-gray-800">N/A</strong></div>
+                            <div class="flex justify-between"><span>Provided Yield Point τ<sub>F</sub>:</span> <strong id="tau_f_provided_display" class="text-gray-800">N/A</strong></div>
+                            <div id="stability-check-status" class="mt-4 p-2 rounded text-center font-bold uppercase tracking-widest"></div>
+                        </div>
+                        <div class="mt-4 pt-3 border-t border-gray-200 text-[10px] text-gray-500 space-y-1">
+                            <p><strong>Parameters:</strong> η<sub>F</sub> = 0.6, γ<sub>φ</sub> = 1.15, γ<sub>G</sub> = 1.00</p>
+                            <p><strong>Simplification:</strong> Using γ'<sub>eff,av</sub> of wedge instead of (1-n)(γ<sub>B</sub>-γ<sub>F</sub>).</p>
+                            <p><strong>Friction Angle:</strong> φ' from sliding plane (base area).</p>
+                            <p><strong>Units:</strong> Values shown in N/m² (1 kN/m² = 1000 N/m²).</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Parameter Table (Moved to be always visible) -->
+            <div id="detailed-parameters" class="lg:col-span-4 p-6 bg-white rounded-lg shadow-lg mt-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Detailed Wedge Parameters at &vartheta;<sub>crit</sub></h2>
+                <table class="w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="py-2 text-xs font-medium text-gray-700 uppercase tracking-wider text-left">Parameter</th>
+                            <th class="py-2 text-xs font-medium text-gray-700 uppercase tracking-wider text-right">Value [kN] / [-]</th>
+                            <th class="py-2 text-xs font-medium text-gray-700 uppercase tracking-wider text-left">Description (Force Type)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="parameter-detail-body" class="bg-white divide-y divide-gray-200 text-sm">
+                        <tr><td colspan="3" class="p-3 text-center text-gray-500">Recalculate to see detailed parameters.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- NEW TABBED SECTION FOR PRESSURE SCENARIOS -->
+            <div class="lg:col-span-4 mt-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Pressure Distribution Scenarios</h2>
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button id="tab-no-lowering" onclick="handleTabClick('no-lowering')" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600">
+                            Scenario: No Lowering
+                        </button>
+                        <button id="tab-full-lowering" onclick="handleTabClick('full-lowering')" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                            Scenario: Full Lowering
+                        </button>
+                        <button id="tab-partial-lowering" onclick="handleTabClick('partial-lowering')" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                            Scenario: Partial Lowering
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Tab Pane 1: No Lowering (Original) -->
+                <div id="pane-no-lowering" class="mt-6">
+                     <div class="p-6 bg-white rounded-lg shadow-lg">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Pressure Distribution: Full Slurry Face</h2>
+                        <!-- Added Subtitle for No Lowering -->
+                        <p id="no-lowering-subtitle" class="text-sm text-gray-500 mb-4">Pressure is governed by...</p>
+
+                        <!-- Display for Required Crown Pressures (Brighter Orange) -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border">
+                            <div>
+                                <h3 class="font-semibold text-orange-600">Min. Required Crown Pressure (s<sub>crown,min</sub>)</h3>
+                                <p class="text-xs text-gray-500 mb-1">Max(Stability, Water Ingress)</p>
+                                <div class="p-2 bg-orange-50 rounded-md border border-orange-200 text-center">
+                                    <strong id="s_crown_min_display" class="text-2xl font-bold text-orange-600">N/A</strong>
+                                    <span class="text-sm text-gray-600">kN/m²</span>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-orange-600">Operational Crown Pressure (s<sub>crown,adv,min</sub>)</h3>
+                                <p class="text-xs text-gray-500 mb-1">s<sub>crown,min</sub> + Δ</p>
+                                <div class="p-2 bg-orange-50 rounded-md border border-orange-200 text-center">
+                                     <strong id="s_crown_adv_min_display" class="text-2xl font-bold text-orange-600">N/A</strong>
+                                    <span class="text-sm text-gray-600">kN/m²</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="relative h-[300px] md:h-[400px]">
+                            <canvas id="PressureChart"></canvas>
+                        </div>
+                        
+                        <!-- Water Ingress Check at Crown -->
+                        <div class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Crown</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Pressure (s<sub>crown,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_crown_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,crown</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_crown">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_crown" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_crown">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>crown,min</sub> ≥ η<sub>W</sub> × p<sub>w,crown</sub>. 
+                                Unfactored water pressure at crown p<sub>w,crown</sub> = <span id="ingress_p_water_unfactored_crown">N/A</span> kN/m².
+                            </p>
+                        </div>
+
+                        <!-- Water Ingress Check at Invert -->
+                        <div class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Invert</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Pressure (s<sub>invert,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_invert_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,invert</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_invert">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_invert" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_invert">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>invert,min</sub> ≥ η<sub>W</sub> × p<sub>w,invert</sub>. 
+                                Unfactored water pressure at invert p<sub>w,invert</sub> = <span id="ingress_p_water_unfactored_invert">N/A</span> kN/m².
+                            </p>
+                        </div>
+
+                        <!-- Blow-out Proof Section -->
+                        <div id="blowout-proof-no-lowering" class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Proof of No Blow-Out at Crown (acc. to DAUB Rec. 2016)</h3>
+                            <p class="text-xs text-center text-gray-600 mb-3">Check: s<sub>crown,adv,min</sub> + Δ ≤ s<sub>crown,max</sub></p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Pressure for Proof</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="blowout_s_crown_req">N/A</span> kN/m²</p>
+                                    <p class="text-xs text-gray-500 mt-1">(s<sub>crown,adv,min</sub> + Δ)</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Max Allowable Pressure (s<sub>crown,max</sub>)</p>
+                                    <p class="font-bold text-xl text-green-700"><span id="blowout_s_crown_max">N/A</span> kN/m²</p>
+                                    <p class="text-xs text-gray-500 mt-1">(0.9 × σ<sub>v,crown,min</sub>)</p>
+                                </div>
+                                <div id="blowout_status_box" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Safety Factor (η)</p>
+                                    <p class="font-bold text-xl"><span id="blowout_eta">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Based on: σ<sub>v,crown,min</sub> = <span id="sigma_v_crown_min_info">N/A</span> kN/m².
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Pane 2: Full Lowering -->
+                <div id="pane-full-lowering" class="hidden mt-6">
+                     <div class="p-6 bg-white rounded-lg shadow-lg">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Pressure Distribution: Full Lowering (Compressed Air)</h2>
+                        <p id="full-lowering-subtitle" class="text-sm text-gray-500 mb-4">Pressure is set by the greater of overall stability (from S<sub>ci</sub>) or the water ingress check at the invert.</p>
+
+                        <!-- Display for Required Crown Pressures -->
+                        <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
+                            <div>
+                                <h3 class="font-semibold text-orange-600">Operational Air Pressure (s<sub>air,adv</sub>)</h3>
+                                <p class="text-xs text-gray-500 mb-1">s<sub>air,min</sub> + Δ</p>
+                                <div class="p-2 bg-orange-50 rounded-md border border-orange-200 text-center">
+                                     <strong id="s_air_req_full_display" class="text-2xl font-bold text-orange-600">N/A</strong>
+                                    <span class="text-sm text-gray-600">kN/m²</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="relative h-[300px] md:h-[400px]">
+                            <canvas id="PressureChartFullLowering"></canvas>
+                        </div>
+                        
+                        <!-- Water Ingress Check at Crown -->
+                        <div class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Crown</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Air Pressure (s<sub>air,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_crown_full_lowering_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,crown</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_crown_full_lowering">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_crown_full_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_crown_full_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>air,min</sub> ≥ η<sub>W</sub> × p<sub>w,crown</sub>. 
+                                Unfactored water pressure at crown p<sub>w,crown</sub> = <span id="ingress_p_water_unfactored_crown_full_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+
+                        <!-- Water Ingress Check at Invert -->
+                        <div class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Invert</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Air Pressure (s<sub>air,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_full_lowering_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,invert</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_full_lowering">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_full_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_full_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>air,min</sub> ≥ η<sub>W</sub> × p<sub>w,invert</sub>. 
+                                Unfactored water pressure at invert p<sub>w,invert</sub> = <span id="ingress_p_water_unfactored_full_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+
+                        <!-- Blow-out Proof Section for Full Lowering -->
+                        <div id="blowout-proof-full-lowering" class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Proof of No Blow-Out at Crown (acc. to DAUB Rec. 2016)</h3>
+                            <p class="text-xs text-center text-gray-600 mb-3">Check: s<sub>air,adv</sub> + Δ ≤ s<sub>crown,max</sub></p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Pressure for Proof</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="blowout_s_crown_req_full_lowering">N/A</span> kN/m²</p>
+                                    <p class="text-xs text-gray-500 mt-1">(s<sub>air,adv</sub> + Δ)</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Max Allowable Pressure (s<sub>crown,max</sub>)</p>
+                                    <p class="font-bold text-xl text-green-700"><span id="blowout_s_crown_max_full_lowering">N/A</span> kN/m²</p>
+                                    <p class="text-xs text-gray-500 mt-1">(0.9 × σ<sub>v,crown,min</sub>)</p>
+                                </div>
+                                <div id="blowout_status_box_full_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Safety Factor (η)</p>
+                                    <p class="font-bold text-xl"><span id="blowout_eta_full_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Based on: σ<sub>v,crown,min</sub> = <span id="sigma_v_crown_min_info_full_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Pane 3: Partial Lowering -->
+                <div id="pane-partial-lowering" class="hidden mt-6">
+                    <div class="p-6 bg-white rounded-lg shadow-lg">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Pressure Distribution: Partial Lowering (Mixed Face)</h2>
+                        <p id="partial-lowering-subtitle" class="text-sm text-gray-500 mb-4">Air pressure is set by the greater of overall stability (from S<sub>ci</sub>) or the water ingress check at the invert.</p>
+
+                        <!-- Display for Required Crown Pressures -->
+                        <div class="mb-6 p-4 bg-gray-50 rounded-lg border">
+                            <div>
+                                <h3 class="font-semibold text-orange-600">Operational Air Pressure (s<sub>air,adv</sub>)</h3>
+                                <p class="text-xs text-gray-500 mb-1">s<sub>air,min</sub> + Δ</p>
+                                <div class="p-2 bg-orange-50 rounded-md border border-orange-200 text-center">
+                                     <strong id="s_air_req_partial_display" class="text-2xl font-bold text-orange-600">N/A</strong>
+                                    <span class="text-sm text-gray-600">kN/m²</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="relative h-[300px] md:h-[400px]">
+                            <canvas id="PressureChartPartialLowering"></canvas>
+                        </div>
+                        
+                        <!-- Water Ingress Check at Crown -->
+                        <div class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Crown</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Air Pressure (s<sub>air,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_crown_partial_lowering_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,crown</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_crown_partial_lowering">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_crown_partial_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_crown_partial_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>air,min</sub> ≥ η<sub>W</sub> × p<sub>w,crown</sub>.
+                                Unfactored water pressure at crown p<sub>w,crown</sub> = <span id="ingress_p_water_unfactored_crown_partial_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+
+                        <!-- Water Ingress Check at Invert -->
+                        <div class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Invert</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Slurry Pressure (s<sub>invert,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_partial_lowering_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,invert</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_partial_lowering">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_partial_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_partial_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>invert,min</sub> ≥ η<sub>W</sub> × p<sub>w,invert</sub>.
+                                Unfactored water pressure at invert p<sub>w,invert</sub> = <span id="ingress_p_water_unfactored_partial_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+
+                        <!-- Blow-out Proof Section for Partial Lowering -->
+                        <div id="blowout-proof-partial-lowering" class="mt-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Proof of No Blow-Out at Crown (acc. to DAUB Rec. 2016)</h3>
+                            <p class="text-xs text-center text-gray-600 mb-3">Check: s<sub>air,adv</sub> + Δ ≤ s<sub>crown,max</sub></p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Pressure for Proof</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="blowout_s_crown_req_partial_lowering">N/A</span> kN/m²</p>
+                                    <p class="text-xs text-gray-500 mt-1">(s<sub>air,adv</sub> + Δ)</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Max Allowable Pressure (s<sub>crown,max</sub>)</p>
+                                    <p class="font-bold text-xl text-green-700"><span id="blowout_s_crown_max_partial_lowering">N/A</span> kN/m²</p>
+                                    <p class="text-xs text-gray-500 mt-1">(0.9 × σ<sub>v,crown,min</sub>)</p>
+                                </div>
+                                <div id="blowout_status_box_partial_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Safety Factor (η)</p>
+                                    <p class="font-bold text-xl"><span id="blowout_eta_partial_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Based on: σ<sub>v,crown,min</sub> = <span id="sigma_v_crown_min_info_partial_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <!-- NEW: PDF Report Button -->
+            <div class="lg:col-span-4 mt-8 pt-6 border-t border-gray-200 text-center">
+                <button onclick="handleGenerateReport()" class="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-150 ease-in-out text-lg">
+                    Generate PDF Report
+                </button>
+            </div>
+            <!-- NEW: Report Information Inputs -->
+            <div class="lg:col-span-4 mt-4 p-4 bg-gray-50 rounded-lg border">
+                <h3 class="text-lg font-semibold text-gray-700 mb-3 text-center">Report Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="report_company" class="block text-sm font-medium text-gray-700">Company:</label>
+                        <input type="text" id="report_company" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" value="Geotechnical Engineering Inc.">
+                    </div>
+                    <div>
+                        <label for="report_prepared_by" class="block text-sm font-medium text-gray-700">Prepared By:</label>
+                        <input type="text" id="report_prepared_by" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" value="John Doe, P.Eng.">
+                    </div>
+                    <div>
+                        <label for="report_cross_section" class="block text-sm font-medium text-gray-700">Cross Section / Project:</label>
+                        <input type="text" id="report_cross_section" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" value="Metro Line Extension - CS-101">
+                    </div>
+                    <div>
+                        <label for="report_date" class="block text-sm font-medium text-gray-700">Date:</label>
+                        <input type="date" id="report_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+ <script type="module" src="./index.js"></script>
+   
+
+<script type="module" src="/index.tsx"></script>
+</body></html>
