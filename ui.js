@@ -645,9 +645,15 @@ export function updatePressureScenario_PartialLowering(results) {
     
     const subtitleEl = document.getElementById('partial-lowering-subtitle');
     if (subtitleEl) {
-        if (Math.abs(results.s_air_min - results.s_air_min_water_invert) < 0.01) {
+        const diffInvert = Math.abs(results.s_air_min - results.s_air_min_water_invert);
+        const diffInterface = Math.abs(results.s_air_min - results.s_air_min_water_interface);
+        const diffStability = Math.abs(results.s_air_min - results.s_air_min_stability);
+
+        if (diffInterface < 0.01) {
+            subtitleEl.innerHTML = `Air pressure governed by water ingress check at lowering point.<br>Req. s<sub>air,min</sub> for water ingress = ${results.s_air_min_water_interface.toFixed(2)} kN/m&sup2;.`;
+        } else if (diffInvert < 0.01) {
             subtitleEl.innerHTML = `Air pressure governed by water ingress check at invert.<br>Req. s<sub>air,min</sub> for water ingress = ${results.s_air_min_water_invert.toFixed(2)} kN/m&sup2;.`;
-        } else if (Math.abs(results.s_air_min - results.s_air_min_stability) < 0.01) {
+        } else if (diffStability < 0.01) {
             subtitleEl.innerHTML = `Air pressure governed by stability (S<sub>ci</sub>).<br>Req. s<sub>air,min</sub> for stability = ${results.s_air_min_stability.toFixed(2)} kN/m&sup2;.`;
         } else {
             subtitleEl.innerHTML = `Air pressure governed by minimum non-negative pressure.`;
@@ -660,5 +666,13 @@ export function updatePressureScenario_PartialLowering(results) {
     const eta_W = etaWEl ? parseFloat(etaWEl.value) : 1.05;
 
     updateIngressCheck('crown_partial_lowering', { required: p_water_unfactored[0] * eta_W, unfactored_water: p_water_unfactored[0], min_pressure: p_support_min[0] });
+    
+    // Lowering Point Check
+    updateIngressCheck('lowering_point_partial_lowering', { 
+        required: results.p_water_interface_unfactored * eta_W, 
+        unfactored_water: results.p_water_interface_unfactored, 
+        min_pressure: results.s_air_min 
+    });
+
     updateIngressCheck('partial_lowering', { required: p_water_unfactored.slice(-1)[0] * eta_W, unfactored_water: p_water_unfactored.slice(-1)[0], min_pressure: p_support_min.slice(-1)[0] });
 }

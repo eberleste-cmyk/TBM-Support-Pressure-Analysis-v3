@@ -685,6 +685,29 @@
                             </p>
                         </div>
 
+                        <!-- Water Ingress Check at Lowering Point -->
+                        <div class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Lowering Point</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center items-center">
+                                <div>
+                                    <p class="text-sm text-gray-600">Provided Min. Air Pressure (s<sub>air,min</sub>)</p>
+                                    <p class="font-bold text-xl text-orange-600"><span id="ingress_s_lowering_point_partial_lowering_provided">N/A</span> kN/m²</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Required Pressure (η<sub>W</sub> × p<sub>w,lowering</sub>)</p>
+                                    <p class="font-bold text-xl text-blue-600"><span id="ingress_p_water_req_lowering_point_partial_lowering">N/A</span> kN/m²</p>
+                                </div>
+                                <div id="ingress_status_box_lowering_point_partial_lowering" class="p-2 rounded-md">
+                                    <p class="text-sm font-semibold">Status</p>
+                                    <p class="font-bold text-xl"><span id="ingress_status_lowering_point_partial_lowering">N/A</span></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center mt-2 text-gray-500">
+                                Check: s<sub>air,min</sub> ≥ η<sub>W</sub> × p<sub>w,lowering</sub>.
+                                Unfactored water pressure at lowering point p<sub>w,lowering</sub> = <span id="ingress_p_water_unfactored_lowering_point_partial_lowering">N/A</span> kN/m².
+                            </p>
+                        </div>
+
                         <!-- Water Ingress Check at Invert -->
                         <div class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-300">
                             <h3 class="text-lg font-semibold text-gray-800 mb-3">Water Ingress Check at Invert</h3>

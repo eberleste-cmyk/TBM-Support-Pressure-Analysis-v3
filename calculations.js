@@ -477,12 +477,18 @@ export function calculatePressureDistribution_PartialLowering(D, t_crown, h_w, E
     const results = { depths: [], p_water_unfactored: [], p_earth_unfactored: [], p_support_min: [], p_support_op: [] };
     const Z_crown = t_crown;
     const L_slurry = D * slurry_level_pct;
+    const Z_interface = (t_crown + D) - L_slurry;
 
     const p_water_invert = Math.max(0, (t_crown + D) - h_w) * GAMMA_W;
     const required_p_invert_water = p_water_invert * eta_W;
     const s_air_min_water_invert = required_p_invert_water - (gamma_S_part * L_slurry);
+
+    const p_water_interface = Math.max(0, Z_interface - h_w) * GAMMA_W;
+    const s_air_min_water_interface = p_water_interface * eta_W;
+
     const s_air_min_stability = (A_ci > 0) ? (S_ci / A_ci) - (gamma_S_part * L_slurry / 2) : 0;
-    const s_air_min = Math.max(s_air_min_water_invert, s_air_min_stability, 0);
+    
+    const s_air_min = Math.max(s_air_min_water_invert, s_air_min_water_interface, s_air_min_stability, 0);
     const s_air_adv = s_air_min + delta_P;
 
     const sigma_E_avg = (A_ci > 0) ? E_max_ci / A_ci : 0;
@@ -508,7 +514,15 @@ export function calculatePressureDistribution_PartialLowering(D, t_crown, h_w, E
         results.p_support_op.push(p_op);
     }
 
-    return { distribution: results, s_air_min, s_air_adv, s_air_min_stability, s_air_min_water_invert };
+    return { 
+        distribution: results, 
+        s_air_min, 
+        s_air_adv, 
+        s_air_min_stability, 
+        s_air_min_water_invert,
+        s_air_min_water_interface,
+        p_water_interface_unfactored: p_water_interface
+    };
 }
 
 export function calculateSlurryPenetration(D, t_crown, h_w, gamma_S, s_crown_min, d10, tau_f, theta_crit, eta_E, E_max_ci, eta_W, W_ci, S_ci) {
