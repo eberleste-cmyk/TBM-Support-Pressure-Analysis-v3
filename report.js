@@ -175,7 +175,8 @@ export async function generatePDFReport(soilLayers) {
         pageDetails.yPos = doc.autoTable.previous.finalY + 10;
 
         // --- Results Section ---
-        if (pageDetails.yPos + 20 > pageHeight - margin) { doc.addPage(); pageDetails.yPos = margin; }
+        doc.addPage();
+        pageDetails.yPos = pageDetails.margin;
         doc.setFontSize(16).setFont('helvetica', 'bold').text('2. Calculation Results', margin, pageDetails.yPos);
         toc.push({ title: '2. Calculation Results', page: doc.internal.getNumberOfPages(), level: 1 });
         pageDetails.yPos += 10;
@@ -188,10 +189,21 @@ export async function generatePDFReport(soilLayers) {
         }
 
         await addImageFromElement(doc, 'slurry-penetration-results', pageDetails, null, '2.2 Slurry Penetration Analysis', 2);
-        await addImageFromElement(doc, 'detailed-parameters', pageDetails, null, '2.3 Detailed Wedge Parameters at Critical Angle', 2);
+        
+        // --- 2.3 Detailed Wedge Parameters ---
+        // Force page break as requested
+        doc.addPage();
+        pageDetails.yPos = pageDetails.margin;
+
+        // Add Homogenized/Averaged Properties screenshot first
+        await addImageFromElement(doc, 'average-display', pageDetails, null, '2.3 Detailed Wedge Parameters', 2);
+        
+        // Add the detailed parameters table
+        await addImageFromElement(doc, 'detailed-parameters', pageDetails, null, 'Support Force Calculation Details:', 3);
         
         // --- Pressure Scenarios Section ---
-        if (pageDetails.yPos + 20 > pageHeight - margin) { doc.addPage(); pageDetails.yPos = margin; }
+        doc.addPage();
+        pageDetails.yPos = pageDetails.margin;
         doc.setFontSize(16).setFont('helvetica', 'bold').text('3. Pressure Distribution Scenarios', margin, pageDetails.yPos);
         toc.push({ title: '3. Pressure Distribution Scenarios', page: doc.internal.getNumberOfPages(), level: 1 });
         pageDetails.yPos += 10;
