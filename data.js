@@ -56,7 +56,10 @@ export function saveInputsToCSV(soilLayers) {
 export function loadInputsFromCSV(event, callback) {
     const file = event.target.files[0];
     if (!file) return;
+    loadSingleFileFromBlob(file, callback);
+}
 
+export function loadSingleFileFromBlob(blob, callback) {
     const reader = new FileReader();
     reader.onload = function(e) {
         let text = e.target.result;
@@ -91,7 +94,7 @@ export function loadInputsFromCSV(event, callback) {
             } else if (!isSoilSection && !line.startsWith('key')) {
                 const parts = line.split(',');
                 const key = parts.shift();
-                let value = parts.join(','); // Re-join in case value contains commas
+                let value = parts.join(',');
                 if (value.startsWith('"') && value.endsWith('"')) {
                     value = value.substring(1, value.length - 1).replace(/""/g, '"');
                 }
@@ -101,5 +104,6 @@ export function loadInputsFromCSV(event, callback) {
 
         callback({ singleInputs, newSoilLayers });
     };
-    reader.readAsText(file);
+    reader.onerror = () => callback(null);
+    reader.readAsText(blob);
 }

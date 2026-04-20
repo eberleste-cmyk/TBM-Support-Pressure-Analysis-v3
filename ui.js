@@ -44,6 +44,53 @@ export function closeModal() {
     if (modal) modal.style.display = 'none';
 }
 
+export function showBatchModal() {
+    const modal = document.getElementById('batchModal');
+    if (modal) modal.style.display = 'flex';
+    document.getElementById('batch-status-text').textContent = 'Initializing...';
+    document.getElementById('batch-percentage').textContent = '0%';
+    document.getElementById('batch-progress-bar').style.width = '0%';
+    document.getElementById('batch-log').innerHTML = '';
+    document.getElementById('batch-cancel-button').classList.remove('hidden');
+    document.getElementById('batch-done-button').classList.add('hidden');
+}
+
+export function updateBatchProgress(current, total, status, logMessage = null, isError = false) {
+    if (current !== null && total !== null) {
+        const percentage = Math.round((current / total) * 100);
+        document.getElementById('batch-percentage').textContent = `${percentage}%`;
+        document.getElementById('batch-progress-bar').style.width = `${percentage}%`;
+    }
+    if (status) document.getElementById('batch-status-text').textContent = status;
+    
+    if (logMessage) {
+        const log = document.getElementById('batch-log');
+        const entry = document.createElement('div');
+        entry.className = isError ? 'text-red-500' : 'text-gray-600';
+        entry.textContent = `[${new Date().toLocaleTimeString()}] ${logMessage}`;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+}
+
+export function finishBatch(successCount, total) {
+    document.getElementById('batch-status-text').textContent = 'Batch Completed';
+    document.getElementById('batch-cancel-button').classList.add('hidden');
+    document.getElementById('batch-done-button').classList.remove('hidden');
+    
+    const log = document.getElementById('batch-log');
+    const summary = document.createElement('div');
+    summary.className = 'font-bold mt-2 pt-2 border-t text-indigo-700';
+    summary.textContent = `Batch Summary: ${successCount} of ${total} reports generated successfully.`;
+    log.appendChild(summary);
+    log.scrollTop = log.scrollHeight;
+}
+
+export function closeBatchModal() {
+    const modal = document.getElementById('batchModal');
+    if (modal) modal.style.display = 'none';
+}
+
 export function toggleSiloOptions() {
     const checkBox = document.getElementById('apply_silo');
     const options = document.getElementById('silo_options');
@@ -513,7 +560,7 @@ export function getPartialLoweringInputs() {
     };
 }
 
-export function updateSlurryPenetrationResults(fs0, efficiency, isActive, isOverrideActive, S_ci_req, S_ci_adj, stabilityCheck, penetrationResult) {
+export function updateSlurryPenetrationResults(fs0, efficiency, isActive, isOverrideActive, S_ci_req, S_ci_adj, stabilityCheck, penetrationResult, emaxProposal) {
     safeSetText('fs0_display', fs0.toFixed(1));
     
     const efficiencyDisplay = document.getElementById('efficiency_display');
@@ -524,7 +571,27 @@ export function updateSlurryPenetrationResults(fs0, efficiency, isActive, isOver
     const statusEl = document.getElementById('verification-status');
     const efficiencyDetails = document.getElementById('efficiency-details');
     const mirrorEl = document.getElementById('emax_ci_mirror');
+    const proposalWrapper = document.getElementById('emax_proposal_wrapper');
+    const overrideContainer = document.getElementById('emax_override_container');
     
+    // Handle Emax Proposal Link and Highlight
+    if (emaxProposal !== null && efficiency < 0.999) {
+        if (proposalWrapper) {
+            proposalWrapper.classList.remove('hidden');
+            safeSetText('emax_proposal_val', emaxProposal.toFixed(0));
+        }
+        if (overrideContainer) {
+            overrideContainer.classList.add('ring-2', 'ring-orange-400/50', 'bg-orange-50');
+            overrideContainer.classList.remove('bg-gray-50');
+        }
+    } else {
+        if (proposalWrapper) proposalWrapper.classList.add('hidden');
+        if (overrideContainer) {
+            overrideContainer.classList.remove('ring-2', 'ring-orange-400/50', 'bg-orange-50');
+            overrideContainer.classList.add('bg-gray-50');
+        }
+    }
+
     // Sync mirror div for PDF reports
     if (mirrorEl) {
         const inputVal = document.getElementById('emax_ci_override').value;

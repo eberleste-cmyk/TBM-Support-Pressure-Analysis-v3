@@ -84,8 +84,8 @@ async function addChartPaneToPdf(doc, pageDetails, tabName, paneId, title) {
 }
 
 
-export async function generatePDFReport(soilLayers) {
-    showModal('Generating Report', 'Please wait while the PDF is being created...', true);
+export async function generatePDFReport(soilLayers, silent = false) {
+    if (!silent) showModal('Generating Report', 'Please wait while the PDF is being created...', true);
     
     try {
         const { jsPDF } = window.jspdf;

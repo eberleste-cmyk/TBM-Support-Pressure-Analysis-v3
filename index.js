@@ -184,6 +184,35 @@ function updatePlot() {
 
     const penetrationResult = calc.calculateSlurryPenetration(D, t_crown, h_w, gamma_S, s_crown_min, d10, tau_f, thetaCrit, eta_E, E_max_ci_final, eta_W, W_ci, S_ci_final);
     
+    // --- PROPOSAL LOGIC ---
+    let emaxProposal = null;
+    if (penetrationResult.isPenetrationActive && penetrationResult.efficiency < 0.999) {
+        // Goal Seek: Find E_max_ci such that S_ci_eff = 100.1% of S_ci_calc
+        const target = S_ci_calc * 1.001;
+        const low = E_max_ci_calc;
+        const high = E_max_ci_calc * 2.0;
+
+        const checkResult = (testE) => {
+            const testS_ci_adj = (eta_E * testE) + (eta_W * W_ci);
+            const test_s_crown_min_stability = (A_ci > 0) ? (testS_ci_adj / A_ci) - (gamma_S * (D / 2)) : 0;
+            const test_s_crown_min = Math.max(test_s_crown_min_stability, s_crown_min_water_crown, s_crown_min_water_invert);
+            const testPen = calc.calculateSlurryPenetration(D, t_crown, h_w, gamma_S, test_s_crown_min, d10, tau_f, thetaCrit, eta_E, testE, eta_W, W_ci, testS_ci_adj);
+            return (testS_ci_adj * testPen.efficiency) - target;
+        };
+
+        // Bisection method
+        let a = low;
+        let b = high;
+        if (checkResult(b) > 0) {
+            for (let i = 0; i < 20; i++) {
+                const mid = (a + b) / 2;
+                if (checkResult(mid) > 0) b = mid;
+                else a = mid;
+            }
+            emaxProposal = b;
+        }
+    }
+
     // Slurry Stability Check (DAUB Eq. 3)
     const stabilityCheck = calc.calculateSlurryStabilityCheck(d10, tau_f, baseProps.phi_base_av, sideProps.gamma_eff_av);
     
@@ -195,7 +224,8 @@ function updatePlot() {
         S_ci_calc, 
         S_ci_final,
         stabilityCheck,
-        penetrationResult
+        penetrationResult,
+        emaxProposal
     );
 
     const criticalComponents = calc.calculateEreComponents(D, sigma_v_prime_crown_max_final, thetaCrit, sideProps, baseProps, k2_model, sigma_v_model);
@@ -278,8 +308,112 @@ function handleLoad(event) {
     });
 }
 
+let batchCancelled = false;
+
+function cancelBatch() {
+    batchCancelled = true;
+    ui.updateBatchProgress(null, null, 'Cancelling...', 'Cancellation requested by user. Process will stop after current task.');
+}
+
+function handleBatchLoad(event) {
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
+    
+    // Reset file input so same files can be selected again
+    event.target.value = '';
+    
+    processBatch(files);
+}
+
+async function processBatch(files) {
+    batchCancelled = false;
+    ui.showBatchModal();
+    let successCount = 0;
+    const total = files.length;
+
+    ui.updateBatchProgress(0, total, `Preparing to process ${total} files...`, `Starting batch process for ${total} files.`);
+
+    for (let i = 0; i < files.length; i++) {
+        if (batchCancelled) {
+            ui.updateBatchProgress(i, total, 'Batch Cancelled', 'User cancelled the batch operation.', true);
+            break;
+        }
+
+        const file = files[i];
+        ui.updateBatchProgress(i, total, `Processing: ${file.name}`, `Loading file ${i + 1}/${total}: ${file.name}`);
+
+        try {
+            const result = await new Promise((resolve) => {
+                data.loadSingleFileFromBlob(file, (data) => resolve(data));
+            });
+
+            if (!result) {
+                throw new Error(`Failed to read CSV content of ${file.name}`);
+            }
+
+            // Apply data to DOM
+            Object.keys(result.singleInputs).forEach(key => {
+                const el = document.getElementById(key);
+                if (el) {
+                    if (el.type === 'checkbox') el.checked = (result.singleInputs[key] === 'true');
+                    else el.value = result.singleInputs[key];
+                }
+            });
+            
+            // Special case for override
+            if (result.singleInputs['emax_ci_override'] === undefined) {
+                 const overrideEl = document.getElementById('emax_ci_override');
+                 if (overrideEl) overrideEl.value = '';
+            }
+
+            soilLayers = result.newSoilLayers;
+            ui.toggleSiloOptions();
+            
+            // Critical: wait for DOM and state updates
+            rerenderLayers(); 
+            // Wait for charts and plots to definitely be updated
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            ui.updateBatchProgress(i, total, `Generating Report: ${file.name}`, `Generating PDF for ${file.name}...`);
+            
+            if (batchCancelled) {
+                ui.updateBatchProgress(i, total, 'Batch Cancelled', 'User cancelled before generation.', true);
+                break;
+            }
+
+            await report.generatePDFReport(soilLayers, true);
+            
+            successCount++;
+            ui.updateBatchProgress(i + 1, total, `Completed: ${file.name}`, `Successfully generated report for ${file.name}.`);
+
+            // 1 second delay between reports as requested
+            if (i < files.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+        } catch (error) {
+            console.error(`Error processing ${file.name}:`, error);
+            ui.updateBatchProgress(i + 1, total, `Failed: ${file.name}`, `Skipping ${file.name}: ${error.message}`, true);
+        }
+    }
+
+    ui.finishBatch(successCount, total);
+}
+
 function handleGenerateReport() {
     report.generatePDFReport(soilLayers);
+}
+
+
+function applyEmaxProposal() {
+    const propVal = document.getElementById('emax_proposal_val').textContent;
+    if (propVal && propVal !== 'N/A') {
+        const input = document.getElementById('emax_ci_override');
+        if (input) {
+            input.value = parseFloat(propVal).toFixed(0);
+            updatePlot();
+        }
+    }
 }
 
 
@@ -303,8 +437,12 @@ window.removeLayer = removeLayer;
 window.updateLayerValue = updateLayerValue;
 window.handleToggleSilo = handleToggleSilo;
 window.showTab = ui.showTab; // Keep for internal use if any
-window.handleTabClick = handleTabClick; // New handler for tabs
+window.handleTabClick = handleTabClick; 
+window.applyEmaxProposal = applyEmaxProposal;
 window.closeModal = ui.closeModal;
 window.handleSave = handleSave;
 window.handleLoad = handleLoad;
 window.handleGenerateReport = handleGenerateReport;
+window.handleBatchLoad = handleBatchLoad;
+window.cancelBatch = cancelBatch;
+window.closeBatchModal = ui.closeBatchModal;
