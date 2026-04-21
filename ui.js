@@ -564,6 +564,8 @@ export function updateSlurryPenetrationResults(fs0, efficiency, isActive, isOver
     safeSetText('fs0_display', fs0.toFixed(1));
     
     const efficiencyDisplay = document.getElementById('efficiency_display');
+    const efficiencyBox = document.getElementById('efficiency_box');
+    const efficiencyWarning = document.getElementById('efficiency-warning-alert');
     const efficiencyContainer = efficiencyDisplay ? efficiencyDisplay.parentElement : null;
     const noteEl = document.getElementById('penetration-note');
     const verificationBlock = document.getElementById('slurry-verification-block');
@@ -573,6 +575,22 @@ export function updateSlurryPenetrationResults(fs0, efficiency, isActive, isOver
     const mirrorEl = document.getElementById('emax_ci_mirror');
     const proposalWrapper = document.getElementById('emax_proposal_wrapper');
     const overrideContainer = document.getElementById('emax_override_container');
+
+    // Handle Warnings and Highlights for Reduced Efficiency without override
+    const hasReduction = efficiency < 0.9999;
+    if (hasReduction && !isOverrideActive) {
+        if (efficiencyWarning) efficiencyWarning.classList.remove('hidden');
+        if (efficiencyBox) {
+            efficiencyBox.classList.add('bg-red-50', 'border-red-300', 'ring-1', 'ring-red-200');
+            efficiencyBox.classList.remove('bg-[#8B4513]/5', 'border-[#8B4513]/20');
+        }
+    } else {
+        if (efficiencyWarning) efficiencyWarning.classList.add('hidden');
+        if (efficiencyBox) {
+            efficiencyBox.classList.remove('bg-red-50', 'border-red-300', 'ring-1', 'ring-red-200');
+            efficiencyBox.classList.add('bg-[#8B4513]/5', 'border-[#8B4513]/20');
+        }
+    }
     
     // Handle Emax Proposal Link and Highlight
     if (emaxProposal !== null && efficiency < 0.999) {

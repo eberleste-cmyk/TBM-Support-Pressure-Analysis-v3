@@ -363,12 +363,26 @@
                                 <strong id="fs0_display" class="text-2xl font-bold text-[#8B4513]">N/A</strong>
                                 <span class="text-sm text-gray-500">kN/m³</span>
                             </div>
-                            <div class="p-3 bg-[#8B4513]/5 rounded-md border border-[#8B4513]/20">
+                            <div class="p-3 bg-[#8B4513]/5 rounded-md border border-[#8B4513]/20 transition-all duration-300" id="efficiency_box">
                                 <p class="text-xs text-gray-600 font-semibold uppercase">Transfer Efficiency</p>
                                 <strong id="efficiency_display" class="text-2xl font-bold text-[#8B4513]">N/A</strong>
                                 <span class="text-sm text-gray-500">%</span>
                             </div>
                         </div>
+
+                        <!-- Efficiency Warning Alert -->
+                        <div id="efficiency-warning-alert" class="hidden p-3 bg-red-50 border-l-4 border-red-500 rounded-r-md flex items-start space-x-3 transition-all duration-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500 flex-shrink-0 mt-0.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                            <div>
+                                <h4 class="text-sm font-bold text-red-800">Warning: Reduced Support Efficiency</h4>
+                                <p class="text-[11px] text-red-700 leading-tight">
+                                    The slurry properties lead to a penetration depth that limits the effective support force. 
+                                    The calculated E<sub>max,ci</sub> used in current results does not account for this reduction. 
+                                    <strong>Please manually adjust the value below.</strong>
+                                </p>
+                            </div>
+                        </div>
+
                         <p id="penetration-note" class="text-xs text-gray-500 italic">Note: Penetration model active if f<sub>s0</sub> &lt; 200 kN/m³ (DIN 4126).</p>
                         
                         <!-- Manual Adjustment Override -->
