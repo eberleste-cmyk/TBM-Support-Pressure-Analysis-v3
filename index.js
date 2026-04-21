@@ -243,7 +243,7 @@ function updatePlot() {
     chartDataStore.noLowering = pressureResults.distribution;
 
     // Scenario 2: Full Lowering
-    const fullLoweringResults = calc.calculatePressureDistribution_FullLowering(D, t_crown, h_w, E_max_ci_final, S_ci_final, eta_W, delta_P, (Math.PI * D * D) / 4);
+    const fullLoweringResults = calc.calculatePressureDistribution_FullLowering(D, t_crown, h_w, E_max_ci_calc, S_ci_calc, eta_W, delta_P, (Math.PI * D * D) / 4);
     ui.updatePressureScenario_FullLowering(fullLoweringResults);
     const blowoutResultsFull = calc.calculateBlowoutSafety_DAUB(t_crown, sigma_v_prime_crown_min, h_w, fullLoweringResults.s_air_adv, delta_P);
     ui.updateBlowoutCheck('full-lowering', blowoutResultsFull);
@@ -251,7 +251,7 @@ function updatePlot() {
 
     // Scenario 3: Partial Lowering
     const { slurry_level_partial, gamma_S_partial } = ui.getPartialLoweringInputs();
-    const partialLoweringResults = calc.calculatePressureDistribution_PartialLowering(D, t_crown, h_w, E_max_ci_final, S_ci_final, eta_W, delta_P, slurry_level_partial, gamma_S_partial, (Math.PI * D * D) / 4);
+    const partialLoweringResults = calc.calculatePressureDistribution_PartialLowering(D, t_crown, h_w, E_max_ci_calc, S_ci_calc, eta_W, delta_P, slurry_level_partial, gamma_S_partial, (Math.PI * D * D) / 4);
     ui.updatePressureScenario_PartialLowering(partialLoweringResults);
     const blowoutResultsPartial = calc.calculateBlowoutSafety_DAUB(t_crown, sigma_v_prime_crown_min, h_w, partialLoweringResults.s_air_adv, delta_P);
     ui.updateBlowoutCheck('partial-lowering', blowoutResultsPartial);

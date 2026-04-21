@@ -382,7 +382,8 @@
                                 </div>
                                 <button onclick="document.getElementById('emax_ci_override').value=''; updatePlot()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-colors font-semibold">Reset</button>
                             </div>
-                            <p class="text-[11px] text-[#8B4513] mt-2 italic flex justify-between items-center">
+                            <p class="text-[11px] text-[#8B4513] mt-2 italic flex flex-col space-y-1">
+                                <span>Note: Manual adjustments are only applied to the 'No Lowering' scenario. For scenarios involving face lowering (Compressed Air), 100% efficiency is assumed.</span>
                                 <span>Note: Overriding E<sub>max,ci</sub> recalculates support pressure and penetration efficiency.</span>
                                 <span id="emax_proposal_wrapper" class="hidden">
                                     <button onclick="applyEmaxProposal()" class="text-blue-600 hover:text-blue-800 font-bold underline ml-2 transition-all">Propose Adjustment: <span id="emax_proposal_val">N/A</span> kN</button>
@@ -432,6 +433,12 @@
                             <p><strong>Units:</strong> Values shown in N/m² (1 kN/m² = 1000 N/m²).</p>
                         </div>
                     </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <p class="text-sm font-bold text-gray-800">
+                        Note: For partial and full face lowering, a tight face (membrane model) with 100% efficiency is assumed.
+                    </p>
                 </div>
             </div>
 

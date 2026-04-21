@@ -594,12 +594,17 @@ export function updateSlurryPenetrationResults(fs0, efficiency, isActive, isOver
 
     // Sync mirror div for PDF reports
     if (mirrorEl) {
-        const inputVal = document.getElementById('emax_ci_override').value;
-        mirrorEl.textContent = inputVal || '';
+        const inputObj = document.getElementById('emax_ci_override');
+        const inputVal = inputObj.value;
+        
         if (inputVal) {
+            mirrorEl.textContent = inputVal;
             mirrorEl.classList.add('font-bold', 'text-[#8B4513]');
+            mirrorEl.classList.remove('text-gray-400', 'italic');
         } else {
+            mirrorEl.textContent = inputObj.placeholder || 'Calculated value used if empty';
             mirrorEl.classList.remove('font-bold', 'text-[#8B4513]');
+            mirrorEl.classList.add('text-gray-400', 'italic');
         }
     }
     

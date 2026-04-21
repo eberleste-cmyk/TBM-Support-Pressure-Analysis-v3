@@ -18,7 +18,7 @@ async function addImageFromElement(doc, elementId, pageDetails, options, titleTe
             onclone: (clonedDoc) => {
                 const mirror = clonedDoc.getElementById('emax_ci_mirror');
                 const input = clonedDoc.getElementById('emax_ci_override');
-                if (mirror && input && input.value) {
+                if (mirror && input) {
                     mirror.classList.remove('hidden');
                     mirror.classList.add('flex'); // Ensure it centers text if needed
                     input.style.visibility = 'hidden';
