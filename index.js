@@ -121,7 +121,7 @@ function updatePlot() {
     const sigma_v_prime_crown_min = calc.calculateSigmaVPrime(t_crown, sigma_s_p, h_w, soilLayers, true);
 
     ui.updateAveragePropertiesDisplay(sideProps, baseProps, sigma_v_prime_crown_max_final, sigma_v_prime_crown_min);
-    ui.updateSiloDetails(apply_silo, siloResult, sigma_v_prime_crown_max_no_silo);
+    ui.updateSiloDetails(apply_silo, siloResult, sigma_v_prime_crown_max_no_silo, D, t_crown, soilLayers);
 
     if (D <= 0) {
         ui.drawWedgeSketch(D, t_crown, h_w, 0, soilLayers, false, null); // Draw with a clear message

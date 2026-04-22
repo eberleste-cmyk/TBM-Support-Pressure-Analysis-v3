@@ -455,59 +455,288 @@ export function updateMainResults({ E_max_re, W_re, E_max_ci, W_ci, S_ci, D, the
     safeSetText('faceAreaCircular', ((Math.PI * D * D) / 4).toFixed(2));
 }
 
-export function updateSiloDetails(apply_silo, siloResult, sigma_v_prime_crown_max_no_silo) {
+export function updateSiloDetails(apply_silo, siloResult, sigma_v_prime_crown_max_no_silo, D, t_crown, soilLayers) {
     const siloDisplay = document.getElementById('silo-details-display-max');
     if (!siloDisplay) return;
 
     if (apply_silo && siloResult) {
-        siloDisplay.innerHTML = ''; // Clear previous content
+        siloDisplay.innerHTML = ''; 
         const remainingLoad = sigma_v_prime_crown_max_no_silo > 1e-6 ? (siloResult.silo_sigma_prime_v / sigma_v_prime_crown_max_no_silo) * 100 : 0;
         
+        // Use a grid layout: Left for text, Right for technical sketch
         const content = `
-            <h3 class="font-semibold text-sm text-gray-800">Silo Theory Calculation (DAUB 2005 - Infinite Strip)</h3>
-            <div class="text-sm font-mono mt-2 space-y-1">
-                <p class="font-bold">1. Silo Geometry (Terzaghi's b₁)</p>
-                <p class="ml-4">Avg. Face Friction Angle (φ'<sub>face</sub>): ${siloResult.phi_for_b1.toFixed(1)} deg</p>
-                <p class="ml-4">Silo Half-Width (b₁): ${siloResult.B.toFixed(3)} m</p>
-                <p class="text-xs text-gray-500 ml-8">${siloResult.B_formula_str}</p>
-                
-                <p class="mt-2 pt-1 border-t border-gray-200 font-bold">2. Silo Height Limit (DAUB Rec.)</p>
-                <p class="ml-4">Total Overburden (t<sub>crown</sub>): ${document.getElementById('t_crown').value} m</p>
-                <p class="ml-4">Silo Height Limit (5 x b₁): ${siloResult.h_limit.toFixed(2)} m</p>
-                <p class="ml-4 text-green-700">Effective Silo Height (h₁): ${siloResult.h1.toFixed(2)} m</p>
-                <p class="ml-4 text-orange-700">Surcharge Soil Height (h₂): ${siloResult.h2.toFixed(2)} m</p>
-                
-                <p class="mt-2 pt-1 border-t border-gray-200 font-bold">3. Janssen's Formula & Parameters</p>
-                <p class="text-xs text-gray-600 bg-gray-100 p-2 rounded my-2">
-                    σ'<sub>v</sub>(z) = [ (B·γ' - c') / λ ] · (1 - e<sup>-λ·z/B</sup>) + σ'<sub>s</sub>·e<sup>-λ·z/B</sup>
-                    <span class="text-gray-500 italic block mt-1">where λ = K₁·tanφ'</span>
-                </p>
-                <div class="bg-gray-50 p-2 rounded mt-1 text-xs">
-                    <p class="font-semibold">Values used in formula:</p>
-                    <ul class="list-disc list-inside ml-2 grid grid-cols-2 gap-x-4">
-                        <li>B: ${siloResult.B.toFixed(3)} m</li>
-                        <li>z (height h₁): ${siloResult.h1.toFixed(2)} m</li>
-                        <li>σ'<sub>s</sub> (surcharge): ${siloResult.silo_surcharge.toFixed(2)} kN/m²</li>
-                        <li>γ'<sub>eff</sub>: ${siloResult.avg_props.gamma_effective_av.toFixed(2)} kN/m³</li>
-                        <li>c': ${siloResult.avg_props.c_av.toFixed(2)} kN/m²</li>
-                        <li>φ'<sub>silo</sub>: ${siloResult.avg_props.phi_av.toFixed(1)} deg</li>
-                        <li>K₁: ${document.getElementById('silo_k1').value}</li>
-                        <li>λ: ${siloResult.lambda.toFixed(3)}</li>
-                    </ul>
-                    <p class="text-gray-500 italic mt-1 text-center">Note: γ', c', and φ'<sub>silo</sub> are averaged over height h₁.</p>
-                </div>
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div class="md:col-span-8 text-sm font-mono space-y-4">
+                    <div>
+                        <h3 class="font-bold text-gray-800 border-b border-gray-100 pb-1 mb-2">Silo Theory Calculation (DAUB 2005 - Infinite Strip)</h3>
+                        <p class="font-bold text-blue-800">1. Silo Geometry (Terzaghi's b₁)</p>
+                        <ul class="ml-4 space-y-1">
+                            <li>Avg. Face Friction Angle (φ'<sub>face</sub>): ${siloResult.phi_for_b1.toFixed(1)} deg</li>
+                            <li>Silo Half-Width (b₁): ${siloResult.B.toFixed(3)} m</li>
+                            <li class="text-xs text-gray-500 italic">${siloResult.B_formula_str}</li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <p class="font-bold text-blue-800">2. Silo Height Limit (DAUB Rec.)</p>
+                        <ul class="ml-4 space-y-1">
+                            <li>Total Overburden (t<sub>crown</sub>): ${t_crown} m</li>
+                            <li>Silo Height Limit (5 x b₁): ${siloResult.h_limit.toFixed(2)} m</li>
+                            <li class="text-green-700 font-bold">Effective Silo Height (h₁): ${siloResult.h1.toFixed(2)} m</li>
+                            <li class="text-orange-700 font-bold">Surcharge Soil Height (h₂): ${siloResult.h2.toFixed(2)} m</li>
+                        </ul>
+                    </div>
 
-                <p class="mt-2 pt-1 border-t-2 border-gray-300 font-bold">4. Final Result</p>
-                <p class="ml-4">Stress without Silo Effect: ${sigma_v_prime_crown_max_no_silo.toFixed(2)} kN/m²</p>
-                <p class="ml-4">Stress with Silo Effect (σ'<sub>v,crown,max</sub>): <strong class="text-blue-700">${siloResult.silo_sigma_prime_v.toFixed(2)}</strong> kN/m²</p>
-                <p class="ml-4">Remaining Load: ${remainingLoad.toFixed(2)} %</p>
+                    <div>
+                        <p class="font-bold text-blue-800">3. Janssen's Formula & Parameters</p>
+                        <p class="text-[11px] text-gray-600 bg-gray-50 p-2 rounded border border-gray-100 my-2">
+                            σ'<sub>v</sub>(z) = [ (B·γ' - c') / λ ] · (1 - e<sup>-λ·z/B</sup>) + σ'<sub>s</sub>·e<sup>-λ·z/B</sup>
+                            <span class="text-gray-400 italic block mt-1">where λ = K₁·tanφ'</span>
+                        </p>
+                        <div class="grid grid-cols-2 gap-4 text-xs bg-gray-50/50 p-2 rounded">
+                            <ul class="space-y-0.5">
+                                <li>B: ${siloResult.B.toFixed(3)} m</li>
+                                <li>z (height h₁): ${siloResult.h1.toFixed(2)} m</li>
+                                <li>σ'<sub>s</sub> (surcharge): ${siloResult.silo_surcharge.toFixed(2)} kN/m²</li>
+                                <li>γ'<sub>eff</sub>: ${siloResult.avg_props.gamma_effective_av.toFixed(2)} kN/m³</li>
+                            </ul>
+                            <ul class="space-y-0.5">
+                                <li>c': ${siloResult.avg_props.c_av.toFixed(2)} kN/m²</li>
+                                <li>φ'<sub>silo</sub>: ${siloResult.avg_props.phi_av.toFixed(1)} deg</li>
+                                <li>K₁: ${document.getElementById('silo_k1').value}</li>
+                                <li>λ: ${siloResult.lambda.toFixed(3)}</li>
+                            </ul>
+                        </div>
+                        <p class="text-[10px] text-gray-400 italic mt-1 text-center">Note: γ', c', and φ'<sub>silo</sub> are averaged over height h₁.</p>
+                    </div>
+
+                    <div class="pt-2 border-t-2 border-gray-100">
+                        <p class="font-bold text-blue-800">4. Final Result</p>
+                        <div class="flex justify-between items-baseline">
+                            <span>Stress without Silo Effect:</span>
+                            <span class="font-bold">${sigma_v_prime_crown_max_no_silo.toFixed(1)} kN/m²</span>
+                        </div>
+                        <div class="flex justify-between items-baseline text-lg">
+                            <span>Stress with Silo Effect (σ'<sub>v,crown,max</sub>):</span>
+                            <strong class="text-blue-700">${siloResult.silo_sigma_prime_v.toFixed(1)} kN/m²</strong>
+                        </div>
+                        <div class="flex justify-between items-baseline text-xs text-gray-500">
+                            <span>Remaining Load:</span>
+                            <span>${remainingLoad.toFixed(1)} %</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:col-span-4 flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200">
+                    <canvas id="siloSketchCanvas" width="220" height="400" class="w-full"></canvas>
+                    <p class="text-[9px] text-gray-400 mt-2 uppercase tracking-tight text-center">Technical Sketch: Silo Model (at scale)</p>
+                </div>
             </div>`;
 
         siloDisplay.innerHTML = content;
         siloDisplay.classList.remove('hidden');
+
+        // Draw the sketch after a small delay to ensure canvas is in DOM
+        setTimeout(() => {
+            const canvas = document.getElementById('siloSketchCanvas');
+            if (canvas) drawSiloSketch(canvas, D, t_crown, parseFloat(document.getElementById('h_w').value), siloResult, soilLayers);
+        }, 0);
     } else {
         siloDisplay.classList.add('hidden');
     }
+}
+
+export function drawSiloSketch(canvas, D, t_crown, h_w, siloResult, layers) {
+    if (!canvas || !siloResult) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+
+    const margin = { top: 40, right: 30, bottom: 20, left: 30 };
+    const drawableWidth = width - margin.left - margin.right;
+    const drawableHeight = height - margin.top - margin.bottom;
+
+    // Determine scale based on t_crown and D
+    const worldYMin = -1; // Ground surface with buffer
+    const worldYMax = t_crown + D + 1;
+    const worldHeight = worldYMax - worldYMin;
+
+    const b1 = siloResult.B;
+    const worldXWidth = Math.max(b1 * 4, D * 2.5);
+    const worldXMin = -worldXWidth / 2;
+
+    const scaleY = drawableHeight / worldHeight;
+    const scaleX = drawableWidth / worldXWidth;
+    const scale = Math.min(scaleX, scaleY);
+    
+    const transform = (wx, wy) => ({
+        x: margin.left + (wx - worldXMin) * scale,
+        y: margin.top + (wy - worldYMin) * scale
+    });
+
+    // 1. Draw Layers (Background)
+    ctx.save();
+    ctx.rect(margin.left, margin.top, drawableWidth, drawableHeight);
+    ctx.clip();
+    const layerColors = ['#f9fafb', '#f3f4f6', '#e5e7eb', '#d1d5db', '#9ca3af'];
+    let currentDepth = 0;
+    layers.forEach((layer, idx) => {
+        const p1 = transform(0, currentDepth);
+        const p2 = transform(0, layer.depth);
+        ctx.fillStyle = layerColors[idx % layerColors.length];
+        ctx.fillRect(margin.left, p1.y, drawableWidth, p2.y - p1.y);
+        currentDepth = layer.depth;
+    });
+    ctx.restore();
+
+    // 2. Main Geometry Points
+    const r = D/2;
+    const h1 = siloResult.h1;
+    const h2 = siloResult.h2;
+    const pCenter = transform(0, t_crown + r);
+    const pGround = transform(0, 0);
+    const pSiloTop = transform(0, h2);
+    const pSiloBot = transform(0, h2 + h1);
+
+    // Janssen Silo Rectangle
+    const pLT = transform(-b1, h2);
+    const pRT = transform(b1, h2);
+    const pLB = transform(-b1, t_crown);
+    const pRB = transform(b1, t_crown);
+
+    // 3. Draw Silo Janssen Box
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 2]);
+    ctx.strokeRect(pLT.x, pLT.y, pRT.x - pLT.x, pLB.y - pLT.y);
+    ctx.setLineDash([]);
+
+    // 4. Surcharge Box (if h2 exists)
+    if (h2 > 0.01) {
+        ctx.strokeStyle = '#92400e';
+        ctx.setLineDash([2, 2]);
+        ctx.strokeRect(pLT.x, pGround.y, pRT.x - pLT.x, pLT.y - pGround.y);
+        ctx.setLineDash([]);
+    }
+
+    // 5. Draw Tunnel
+    ctx.beginPath();
+    ctx.arc(pCenter.x, pCenter.y, r * scale, 0, 2 * Math.PI);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 6. Draw Transition (Terzaghi ϑ lines)
+    const phi = siloResult.phi_for_b1;
+    const theta_rad = (45 + phi/2) * (Math.PI / 180);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([1, 1]);
+    ctx.beginPath();
+    ctx.moveTo(pLB.x, pLB.y);
+    ctx.lineTo(pCenter.x - r * scale, pCenter.y);
+    ctx.moveTo(pRB.x, pRB.y);
+    ctx.lineTo(pCenter.x + r * scale, pCenter.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = 'italic 7px sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'left';
+    ctx.fillText(`ϑ = 45°+φ'/2`, pCenter.x + r*scale + 2, pCenter.y + 5);
+
+    // 7. Layer Short Names (Left Side, vertically centered)
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    let currentDepthLabel = 0;
+    layers.forEach(layer => {
+        const thickness = layer.depth - currentDepthLabel;
+        if (thickness >= 1.0) {
+            const y1 = transform(0, currentDepthLabel).y;
+            const y2 = transform(0, layer.depth).y;
+            const midY = (y1 + y2) / 2;
+            if (midY > margin.top && midY < height - margin.bottom) {
+                // Use .name instead of .shortName
+                ctx.fillText(layer.name || 'Layer', margin.left + 5, midY);
+            }
+        }
+        currentDepthLabel = layer.depth;
+    });
+
+    // 8. Ground Line
+    ctx.beginPath();
+    ctx.moveTo(margin.left - 5, pGround.y);
+    ctx.lineTo(width - margin.right + 5, pGround.y);
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#4b5563';
+    ctx.font = 'bold 8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('GROUND SURFACE', width/2, pGround.y - 12);
+
+    // 9. Dimension Lines
+    const drawDim = (x, y1, y2, label, color) => {
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y1); ctx.lineTo(x, y2);
+        ctx.moveTo(x-3, y1); ctx.lineTo(x+3, y1);
+        ctx.moveTo(x-3, y2); ctx.lineTo(x+3, y2);
+        ctx.stroke();
+        ctx.save();
+        ctx.translate(x + 10, (y1 + y2) / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.font = 'bold 9px sans-serif';
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
+    };
+
+    // h1
+    drawDim(pRT.x + 10, pSiloTop.y, pRB.y, `h₁ = ${h1.toFixed(1)}m`, '#15803d');
+    // h2
+    if (h2 > 0.01) {
+        drawDim(pRT.x + 35, pGround.y, pSiloTop.y, `h₂ = ${h2.toFixed(1)}m`, '#92400e');
+    }
+    
+    // 2b1 - RELOCATED HIGHER ABOVE CROWN
+    const yDim2b1 = pLB.y - 45;
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.beginPath();
+    ctx.moveTo(pLT.x, yDim2b1); ctx.lineTo(pRT.x, yDim2b1);
+    ctx.moveTo(pLT.x, yDim2b1 - 3); ctx.lineTo(pLT.x, yDim2b1 + 3);
+    ctx.moveTo(pRT.x, yDim2b1 - 3); ctx.lineTo(pRT.x, yDim2b1 + 3);
+    ctx.stroke();
+    ctx.fillStyle = '#1e3a8a';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`2 b₁ = ${(2 * b1).toFixed(2)}m`, pCenter.x, yDim2b1 - 5);
+
+    // 10. Force Arrows
+    const drawArrows = (y, xStart, xEnd, label, color) => {
+        const step = (xEnd - xStart) / 4;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const x = xStart + i * step;
+            ctx.beginPath();
+            ctx.moveTo(x, y-10); ctx.lineTo(x, y);
+            ctx.lineTo(x-2, y-3); ctx.moveTo(x, y); ctx.lineTo(x+2, y-3);
+            ctx.stroke();
+        }
+        ctx.fillStyle = color;
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, (xStart + xEnd)/2, y - 15);
+    };
+
+    drawArrows(pGround.y, pLT.x, pRT.x, 'p', '#475569');
+    if (h2 > 0) drawArrows(pSiloTop.y, pLT.x, pRT.x, 'p+h₂·γ', '#92400e');
+    // sigma_v arrows above crown
+    drawArrows(pLB.y, pLT.x, pRT.x, "σ'v", '#1d4ed8');
 }
 
 

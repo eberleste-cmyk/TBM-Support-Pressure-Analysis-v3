@@ -138,7 +138,7 @@ export function calculateSiloSigmaV(t_crown, sigma_s_user, h_w, layers, D, silo_
     const theta_terzaghi_rad = (45 * D2R) + (phi_rad_face / 2); // ϑ = 45° + φ'/2
     const b1 = r / Math.tan(theta_terzaghi_rad / 2); // DAUB 2005, Eq. (2)
     const B = b1;
-    const B_formula_str_val = `b₁ = r / tan((45°+φ'face/2)/2) = (${r.toFixed(3)}) / tan((45° + ${phi_av_face.toFixed(1)}°)/2)`;
+    const B_formula_str_val = `b₁ = r / tan((45°+φ'face/2)/2) = (${r.toFixed(3)}) / tan((45° + ${phi_av_face.toFixed(1)}°/2)/2)`;
 
     // Step 2: Apply the 5*b1 height limit (DAUB 2005, p.49)
     const h_limit = 5 * B;
